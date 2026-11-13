@@ -163,7 +163,7 @@ test('Web UI queues multiple IDs, reconnects and stops only the selected task', 
   await page.waitForFunction(() => !document.querySelector('#start').disabled);
   await expectIdle();
   assert.equal(await page.locator('[name=firstName]').inputValue(), '');
-  assert.deepEqual(await page.locator('input, select').evaluateAll(items => items.map(item => item.name)), ['url', 'firstName', 'lastName', 'birthDate', 'proxy', 'password']);
+  assert.deepEqual(await page.locator('input, select').evaluateAll(items => items.map(item => item.name)), ['url', 'firstName', 'lastName', 'birthDate', 'proxy', 'document', 'password']);
   const url = 'https://services.sheerid.com/verify/aaaaaaaaaaaaaaaaaaaaaaaa/?verificationId=bbbbbbbbbbbbbbbbbbbbbbbb';
   await page.locator('[name=url]').fill(url);
   await page.locator('[name=firstName]').fill('Test');

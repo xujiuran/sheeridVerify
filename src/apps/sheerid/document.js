@@ -5,6 +5,9 @@ import { networkFetch } from '../../core/network.js';
 
 const MAX_BYTES = 20 * 1024 * 1024; // Buffering limit, not a claim about a program's upload limit.
 
+// Shared by the Web upload endpoint so browser uploads pass the same checks.
+export const MAX_DOCUMENT_BYTES = MAX_BYTES;
+
 export function selectDocumentSource(document = {}, { file, url } = {}, data) {
   requireValue(!(file !== undefined && url !== undefined), '--file 与 --url 只能指定一个');
   if (file !== undefined) return { path: file };
@@ -41,6 +44,11 @@ function metadata(bytes, filename) {
       '本地材料扩展名与文件头不一致');
   }
   return { bytes, mimeType, fileSize: bytes.length, fileName: filename ?? `document${extension}` };
+}
+
+// Validate already-buffered bytes (for uploads) without touching the filesystem.
+export function inspectDocument(bytes, filename) {
+  return metadata(bytes, filename);
 }
 
 function downloadUrl(value) {

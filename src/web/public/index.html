@@ -13,12 +13,21 @@
           <div class="grid"><label>名 · First name<input name="firstName" required maxlength="150"></label><label>姓 · Last name<input name="lastName" required maxlength="150"></label></div>
           <label>出生日期<input name="birthDate" type="date" required min="1900-01-01"></label>
           <label>代理<input name="proxy" placeholder="留空直连；支持 host:port:username:password"></label>
+          <div class="field">
+            <span class="field-label">证明材料 <span class="optional">可选 · PDF / PNG / JPG</span></span>
+            <span class="file-box file-picker">
+              <input id="document-file" class="file-input" name="document" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">
+              <label for="document-file" class="file-button">选择文件</label>
+              <span id="document-name" class="file-name">未选择文件</span>
+            </span>
+          </div>
+          <p id="document-selected" class="hint selected-file" hidden></p>
           <label>访问密码<input name="password" type="password" required autocomplete="current-password" placeholder="请输入访问密码"></label>
         </section>
         <div class="actions"><button id="start" type="submit" class="primary" disabled>加入队列</button><button type="reset" class="secondary">清空表单</button></div>
       </fieldset>
       <p id="form-error" class="error" role="alert" hidden></p>
-      <p class="privacy">其余设置使用配置文件，代理留空时直连。</p>
+      <p class="privacy">其余设置使用配置文件，代理留空时直连。证明材料上传后保存在本地 download 文件夹。</p>
     </form>
     <aside class="progress card"><div class="progress-heading"><h2>运行进度</h2><span id="job-state" class="badge">待开始</span></div>
       <p id="queue-summary" class="hint">正在读取队列</p>

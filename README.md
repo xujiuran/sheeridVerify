@@ -108,7 +108,7 @@ npm run web
 
 代理填写时使用输入的代理，留空或只有空格时强制直连，**不使用配置中的代理、系统代理或代理环境变量**。支持 HTTP/SOCKS5 URL 及 `host:port:username:password`。`AUTOMATION_URL` 也不会覆盖网页输入的链接。
 
-点击“加入队列”后，按入队顺序自动填写、提交，并按配置继续材料流程；`browser.autoFill: false` 时遵循原有手动填写模式。材料来源沿用配置中的 `document.path` 或 `document.url`，下载查询中的姓名使用本次网页输入。点击提交后保留浏览器，只有接口确认进入 `docUpload` 且没有终止错误时，才关闭浏览器并继续上传文件。
+点击“加入队列”后，按入队顺序自动填写、提交，并按配置继续材料流程；`browser.autoFill: false` 时遵循原有手动填写模式。材料来源默认沿用配置中的 `document.path` 或 `document.url`，下载查询中的姓名使用本次网页输入；在网页“证明材料”处选择本地 PDF／PNG／JPG 后，文件会先上传到本地 `download` 文件夹（可用环境变量 `ONE_DOCUMENT_DIR` 修改），并覆盖配置中的材料来源，仅对本次任务生效。上传文件需非空且不超过 20 MiB，网页与服务端都会校验格式。点击提交后保留浏览器，只有接口确认进入 `docUpload` 且没有终止错误时，才关闭浏览器并继续上传文件。
 
 并发上限由 `config/sheerid.local.json` 的 `web.concurrency` 控制，默认 1。例如同时执行 3 个任务：
 

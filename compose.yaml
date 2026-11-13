@@ -1,0 +1,38 @@
+services:
+  sheerid-verify:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sheeridverify:local
+    container_name: sheerid-verify
+    restart: unless-stopped
+    ports:
+      - "8787:8787"   # 工作台
+      - "6080:6080"   # noVNC 桌面（浏览器手动操作）
+    environment:
+      # 工作台访问密码：必须在首次启动前改掉默认值
+      ONE_WEB_PASSWORD: "${ONE_WEB_PASSWORD:-JenkinWoo}"
+      # 设为 0 可关闭虚拟显示器与 VNC（仅在使用 headless 浏览器时需要）
+      ENABLE_DISPLAY: "${ENABLE_DISPLAY:-1}"
+      ENABLE_VNC: "${ENABLE_VNC:-1}"
+      TZ: "${TZ:-Asia/Shanghai}"
+    volumes:
+      # 个人配置：宿主机上编辑，容器内只读挂载，改完重启即生效
+      - ./config:/app/config:ro
+      # 运行记录与容器内产生的日志
+      - ./.runs:/app/.runs
+      - ./documents:/app/documents
+      # 网页上传的证明材料默认保存在这里
+      - ./download:/app/download
+      # Camoufox 浏览器二进制缓存，重建镜像时避免重复下载
+      - camoufox-cache:/root/.cache
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    shm_size: "1gb"
+
+volumes:
+  camoufox-cache:

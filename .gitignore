@@ -6,4 +6,5 @@ node_modules/
 config/*.local.json
 .runs/
 documents/
+download/
 *.log

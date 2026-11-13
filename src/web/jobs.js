@@ -1,14 +1,17 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile, stat as statFile } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
 import { normalizeConfig, normalizeWebConfig, checkKeys } from '../core/config.js';
 import { AutomationError, requireValue } from '../core/errors.js';
 import { withLogSink } from '../core/logger.js';
 import { runWorkflow } from '../core/workflow.js';
 import { verificationIdFromUrl } from '../apps/sheerid/client.js';
+import { MAX_DOCUMENT_BYTES } from '../apps/sheerid/document.js';
 
 export class WebJobs {
-  constructor({ configFile = resolve('config/sheerid.local.json'), workflow = runWorkflow } = {}) {
+  constructor({ configFile = resolve('config/sheerid.local.json'), workflow = runWorkflow,
+    documentDir = resolve('download') } = {}) {
     this.configFile = configFile;
+    this.documentDir = resolve(documentDir);
     this.workflow = workflow;
     this.jobs = new Map();
     this.queue = [];
@@ -39,12 +42,13 @@ export class WebJobs {
 
   async enqueue(input) {
     if (this.closing) throw new AutomationError('SERVER_STOPPING', '服务正在关闭');
-    checkKeys(input, ['url', 'firstName', 'lastName', 'birthDate', 'proxy'], '表单');
+    checkKeys(input, ['url', 'firstName', 'lastName', 'birthDate', 'proxy', 'documentPath'], '表单');
     for (const key of ['url', 'firstName', 'lastName',  'birthDate']) {
       requireValue(typeof input[key] === 'string' && input[key].trim().length > 0, `请填写 ${key}`);
     }
 
     requireValue(input.proxy === undefined || typeof input.proxy === 'string', '代理必须是字符串');
+    const documentPath = await this.documentPath(input.documentPath);
     let id;
     try { id = verificationIdFromUrl(input.url.trim()); }
     catch (error) {
@@ -68,6 +72,9 @@ export class WebJobs {
     const email = `${first}.${last}@${domain}`;
     const config = await normalizeConfig({
       ...raw, url: input.url.trim(), proxy: input.proxy?.trim() || 'direct',
+      // An uploaded local file replaces any configured network material; the
+      // two sources are mutually exclusive in normalizeConfig.
+      document: documentPath ? { path: documentPath, url: '' } : raw?.document,
       data: { ...raw?.data, firstName: input.firstName.trim(), lastName: input.lastName.trim(), email, birthDate: input.birthDate.trim() },
     }, {});
     if (this.closing) throw new AutomationError('SERVER_STOPPING', '服务正在关闭');
@@ -83,6 +90,21 @@ export class WebJobs {
     this.record(job, { event: 'web_queued', stage: 'queued', mode: job.mode });
     this.drain();
     return this.snapshot(job);
+  }
+
+  // Only files inside the local upload folder may become a job's material.
+  async documentPath(value) {
+    if (value === undefined) return '';
+    requireValue(typeof value === 'string', '证明材料路径必须是字符串');
+    if (!value.trim()) return '';
+    const path = resolve(value.trim());
+    requireValue(path.startsWith(`${this.documentDir}${sep}`), '证明材料必须位于本地上传目录');
+    let info;
+    try { info = await statFile(path); }
+    catch { throw new AutomationError('DOCUMENT_UNREADABLE', '无法读取已上传的证明材料'); }
+    requireValue(info.isFile() && info.size > 0 && info.size <= MAX_DOCUMENT_BYTES,
+      '证明材料必须是非空文件且不超过 20 MiB');
+    return path;
   }
 
   drain() {

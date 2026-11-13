@@ -1,9 +1,10 @@
 import { createServer } from 'node:http';
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, extname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { AutomationError, requireValue } from '../core/errors.js';
+import { inspectDocument, MAX_DOCUMENT_BYTES } from '../apps/sheerid/document.js';
 import { WebJobs } from './jobs.js';
 import { isMainModule } from '../../scripts/process.js';
 
@@ -14,7 +15,8 @@ const assets = new Map([
 ]);
 
 export function createWebServer({ port = 8787, host = '127.0.0.1', publicOrigin,
-  password = 'JenkinWoo', configFile = resolve('config/sheerid.local.json'), workflow } = {}) {
+  password = 'JenkinWoo', configFile = resolve('config/sheerid.local.json'),
+  documentDir = resolve('download'), workflow } = {}) {
   requireValue(['127.0.0.1', '0.0.0.0'].includes(host), 'Web 监听地址无效');
   let published;
   if (publicOrigin) {
@@ -29,7 +31,7 @@ export function createWebServer({ port = 8787, host = '127.0.0.1', publicOrigin,
   const sessionKey = randomBytes(32).toString('hex');
   const expectedSession = digest(sessionKey);
   const token = randomBytes(32).toString('hex');
-  const jobs = new WebJobs({ configFile, workflow });
+  const jobs = new WebJobs({ configFile, workflow, documentDir });
   let origin;
   const server = createServer((request, response) => {
     handle(request, response).catch(error => {
@@ -106,6 +108,19 @@ export function createWebServer({ port = 8787, host = '127.0.0.1', publicOrigin,
       json(response, 202, { job });
       return;
     }
+    if (request.method === 'POST' && url.pathname === '/api/documents') {
+      let name;
+      try { name = decodeURIComponent(request.headers['x-document-name'] ?? ''); }
+      catch { throw new AutomationError('INVALID_CONFIG', '证明材料文件名无效'); }
+      requireValue(name.trim().length > 0 && !/[/\\\0]/.test(name), '证明材料文件名无效');
+      const body = await readBody(request, MAX_DOCUMENT_BYTES);
+      const document = inspectDocument(body, basename(name));
+      await mkdir(resolve(documentDir), { recursive: true });
+      const path = join(resolve(documentDir), storedName(name));
+      await writeFile(path, body);
+      json(response, 201, { path, name: basename(name), size: document.fileSize });
+      return;
+    }
     const jobRoute = url.pathname.match(/^\/api\/jobs\/([a-f\d]{24})(\/(?:cancel|resume))?$/i);
     if (jobRoute && request.method === 'DELETE' && !jobRoute[2]) {
       json(response, 200, jobs.remove(jobRoute[1]));
@@ -147,6 +162,16 @@ export function createWebServer({ port = 8787, host = '127.0.0.1', publicOrigin,
   };
 }
 
+// Keep the original extension (the task revalidates it against the file header)
+// while the random prefix prevents collisions and hidden-name surprises.
+function storedName(name) {
+  const base = basename(name).normalize('NFC');
+  const suffix = extname(base).toLowerCase();
+  const stem = base.slice(0, base.length - suffix.length)
+    .replace(/[^\p{L}\p{N}._-]+/gu, '_').replace(/^[._]+/, '').slice(0, 80) || 'document';
+  return `${randomBytes(6).toString('hex')}-${stem}${suffix}`;
+}
+
 async function readBody(request, limit) {
   if (Number(request.headers['content-length']) > limit) throw new AutomationError('BODY_TOO_LARGE', '文件或请求内容超过大小限制');
   const chunks = [];
@@ -170,6 +195,7 @@ if (isMainModule(import.meta.url)) {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('端口必须为 1024–65535 的整数');
   const app = createWebServer({ port, host: process.env.ONE_WEB_HOST || '127.0.0.1',
     publicOrigin: process.env.ONE_WEB_PUBLIC_ORIGIN,
+    documentDir: process.env.ONE_DOCUMENT_DIR || resolve('download'),
     password: process.env.ONE_WEB_PASSWORD });
   const shutdown = () => { void app.close().catch(() => { process.exitCode = 1; }); };
   process.once('SIGINT', shutdown);

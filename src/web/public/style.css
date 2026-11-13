@@ -295,6 +295,63 @@ label .hint { margin: 0 }
 .checks { display: flex; flex-wrap: wrap; gap: 0 22px }
 .file-box { border: 1px dashed var(--line-strong); background: rgba(5, 9, 20, .5); border-radius: var(--radius-sm); padding: 18px }
 .file-box input { border: 0; padding: 8px 0; height: auto; background: none }
+
+/* ---------- Document upload ---------- */
+.field { display: flex; flex-direction: column; gap: 9px; margin-bottom: 20px; min-width: 0 }
+.field-label { display: flex; align-items: baseline; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: 1px; color: var(--text-soft) }
+.field-label .optional { font-size: 11px; font-weight: 400; letter-spacing: .5px; color: var(--text-mute) }
+.file-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.file-picker:hover { border-color: rgba(34, 211, 238, .5) }
+.file-picker:focus-within { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34, 211, 238, .16), 0 0 22px -4px rgba(34, 211, 238, .5) }
+input.file-input {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; opacity: 0;
+  pointer-events: none;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  overflow: hidden;
+}
+label.file-button {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 16px;
+  border: 1px solid rgba(34, 211, 238, .55);
+  border-radius: var(--radius-sm);
+  color: var(--cyan);
+  background: rgba(34, 211, 238, .1);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+label.file-button:hover { background: rgba(34, 211, 238, .18); border-color: var(--cyan); box-shadow: 0 0 18px -6px rgba(34, 211, 238, .7) }
+fieldset:disabled label.file-button { opacity: .5; cursor: not-allowed; pointer-events: none }
+.file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-mute);
+}
+.file-name[data-selected="true"] { color: var(--text) }
+.selected-file { margin: -10px 0 18px; overflow-wrap: anywhere }
 summary { cursor: pointer; font-weight: 600; font-size: 13px }
 summary span { float: right; color: var(--text-mute); font-size: 11px; font-weight: 400 }
 .details-body { padding-top: 22px }

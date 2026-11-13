@@ -1,6 +1,9 @@
 const $ = selector => document.querySelector(selector);
 const form = $('#task-form');
 const field = name => form.elements.namedItem(name);
+const documentFile = $('#document-file');
+const DOCUMENT_LIMIT = 20 * 1024 * 1024;
+const DOCUMENT_NAME = /\.(pdf|png|jpe?g)$/i;
 let token, selectedId, selectedJob, cursor = 0, selectionVersion = 0, busy = false, connected = false;
 let lastActivity = '';
 const displayedResults = new Set();
@@ -61,6 +64,24 @@ function activity(record) {
 
 function setConn(state, text) { const el = $('#connection'); el.dataset.state = state; el.textContent = text; }
 function error(message = '') { $('#form-error').textContent = message; $('#form-error').hidden = !message; }
+function fileSize(bytes) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(0.1, bytes / 1024).toFixed(1)} KB`;
+}
+function showDocument() {
+  const file = documentFile.files?.[0];
+  const name = $('#document-name');
+  name.textContent = file ? file.name : '未选择文件';
+  name.dataset.selected = String(Boolean(file));
+  $('#document-selected').hidden = !file;
+  $('#document-selected').textContent = file ? `已选择：${file.name}（${fileSize(file.size)}）` : '';
+}
+function acceptedDocument(file) {
+  if (!file) return true;
+  if (!DOCUMENT_NAME.test(file.name)) { error('证明材料仅支持 PDF、PNG 或 JPG'); return false; }
+  if (file.size === 0) { error('证明材料文件为空'); return false; }
+  if (file.size > DOCUMENT_LIMIT) { error('证明材料不能超过 20 MiB'); return false; }
+  return true;
+}
 function updateControls() {
   $('#start').textContent = busy ? '正在加入…' : '加入队列';
   $('#form-fields').disabled = busy;
@@ -207,18 +228,29 @@ async function poll() {
   }
 }
 form.addEventListener('change', updateControls);
-form.addEventListener('reset', () => { error(); setTimeout(updateControls, 0); });
+form.addEventListener('reset', () => { error(); setTimeout(() => { showDocument(); updateControls(); }, 0); });
 form.addEventListener('submit', async event => {
   event.preventDefault();
   if (busy) return;
   error();
   const value = name => field(name).value.trim();
   const input = Object.fromEntries(['url', 'firstName', 'lastName', 'birthDate', 'proxy'].map(name => [name, value(name)]));
+  const file = documentFile.files?.[0];
+  if (!acceptedDocument(file)) return;
   busy = true;
   updateControls();
   try {
     if (!connected && !await connect()) return;
-    const { job } = await api('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+    let documentPath;
+    if (file) {
+      const uploaded = await api('/api/documents', { method: 'POST', headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-Document-Name': encodeURIComponent(file.name),
+      }, body: file });
+      documentPath = uploaded.path;
+    }
+    const { job } = await api('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, ...(documentPath ? { documentPath } : {}) }) });
     selectJob(job);
   } catch (reason) { error(reason.message); }
   finally { busy = false; updateControls(); requestPoll(); }
@@ -298,6 +330,11 @@ $('#random-fill').addEventListener('click', () => {
   field('lastName').value = pick(LAST_NAMES);
   field('birthDate').value = randomBirthDate();
   updateControls();
+});
+documentFile.addEventListener('change', () => {
+  error();
+  if (!acceptedDocument(documentFile.files?.[0])) documentFile.value = '';
+  showDocument();
 });
 $('#cancel').addEventListener('click', () => taskAction('cancel'));
 $('#resume').addEventListener('click', () => taskAction('resume'));
